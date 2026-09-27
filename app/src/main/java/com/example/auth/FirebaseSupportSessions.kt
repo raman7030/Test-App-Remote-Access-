@@ -70,6 +70,7 @@ class FirebaseSupportSessions(
                 "consentGrantedAt" to if (granted) FieldValue.serverTimestamp() else null,
                 "updatedAt" to FieldValue.serverTimestamp()
             ))
+                    true
         }.await()
     }
 
