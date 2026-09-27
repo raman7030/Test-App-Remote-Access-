@@ -39,14 +39,19 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
-      - name: Print Android signing fingerprints
-        run: gradle :app:signingReport --stacktrace
-
       - name: Run unit tests
         run: gradle :app:testDebugUnitTest --stacktrace
 
       - name: Assemble debug APK
         run: gradle :app:assembleDebug --stacktrace
+
+      - name: Print debug APK certificate fingerprints
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=$(find app/build/outputs/apk/debug -maxdepth 1 -name "*.apk" -print -quit)
+          test -n "$APK"
+          apksigner verify --print-certs "$APK"
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
