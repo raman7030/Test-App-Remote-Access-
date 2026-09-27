@@ -116,6 +116,8 @@ dependencies {
   implementation(libs.logging.interceptor)
   implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
+  // Google WebRTC native stack for peer connections, SDP and ICE negotiation.
+  implementation("io.github.webrtc-sdk:android:125.6422.07")
   // implementation(libs.play.services.location)
   implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)
