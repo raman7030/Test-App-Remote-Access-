@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">DroidCommand Ultimate</string>
+    <string name="app_tagline">Android Enterprise Device Owner &amp; Remote Support Platform</string>
+    <string name="accessibility_service_description">Enables authorized, consent-based remote touchscreen assistance and gesture navigation during active enterprise remote support sessions.</string>
+    <string name="device_admin_description">Enables enterprise Device Owner management, policy enforcement, security controls, and remote device monitoring.</string>
+    <string name="notification_channel_screen_share">Screen Sharing &amp; Support</string>
+    <string name="notification_channel_mgmt">Device Management Service</string>
+    <string name="screen_share_active_title">Remote Support Session Active</string>
+    <string name="screen_share_active_text">Your screen is being shared with authorized enterprise administrator. Tap to stop.</string>
+    <string name="mgmt_service_active_title">Enterprise Device Protection</string>
+    <string name="mgmt_service_active_text">Device is enrolled and connected to DroidCommand MDM.</string>
+</resources>

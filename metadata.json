@@ -1,0 +1,6 @@
+{
+  "name": "DroidCommand Ultimate",
+  "description": "Enterprise Android Device Owner, persistent authentication, policy enforcement, live screen monitoring & remote support platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
