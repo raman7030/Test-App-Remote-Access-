@@ -196,6 +196,12 @@ fun RoleSelectionScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        Button(onClick = onNavigateToSupport, modifier = Modifier.fillMaxWidth()) {
+            Text("Support Sessions / Pairing")
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
         // Setup Guide Button
         Card(
             modifier = Modifier
