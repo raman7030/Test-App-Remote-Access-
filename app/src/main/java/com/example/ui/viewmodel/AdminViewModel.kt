@@ -107,15 +107,12 @@ class AdminViewModel : ViewModel() {
     )
     val provisioningConfig: StateFlow<EnrollmentPayloadConfig> = _provisioningConfig.asStateFlow()
 
-    private val _qrMatrix = MutableStateFlow(EnterpriseProvisioningHelper.generateQrMatrix("INIT"))
+    private val _qrMatrix = MutableStateFlow(emptyArray<BooleanArray>())
     val qrMatrix: StateFlow<Array<BooleanArray>> = _qrMatrix.asStateFlow()
 
     private val _commandToast = MutableStateFlow<String?>(null)
     val commandToast: StateFlow<String?> = _commandToast.asStateFlow()
 
-    init {
-        refreshQrMatrix()
-    }
 
     fun selectRole(role: AdminRole) {
         _currentRole.value = role
@@ -213,11 +210,27 @@ class AdminViewModel : ViewModel() {
     }
 
     private fun refreshQrMatrix() {
+        // Do not crash the admin UI while the standards-compliant QR encoder is unavailable.
+        val config = _provisioningConfig.value
+        val isComplete = config.organizationId.isNotBlank() &&
+            config.organizationName.isNotBlank() &&
+            config.serverUrl.startsWith("https://", ignoreCase = true) &&
+            config.enrollmentToken.isNotBlank() &&
+            config.signingCertificateChecksum.matches(Regex("(?i)^[a-f0-9]{64}$"))
+        if (!isComplete) {
+            _qrMatrix.value = emptyArray()
+            return
+        }
         val json = EnterpriseProvisioningHelper.generateEnterpriseProvisioningJson(
             DroidCommandApplication.instance,
-            _provisioningConfig.value
+            config
         )
-        _qrMatrix.value = EnterpriseProvisioningHelper.generateQrMatrix(json, size = 29)
+        _qrMatrix.value = runCatching {
+            EnterpriseProvisioningHelper.generateQrMatrix(json, size = 29)
+        }.getOrElse {
+            _commandToast.value = "Provisioning QR unavailable: QR encoder is not integrated."
+            emptyArray()
+        }
     }
 
     fun clearToast() {
