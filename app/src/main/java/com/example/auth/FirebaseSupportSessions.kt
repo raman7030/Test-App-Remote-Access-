@@ -46,10 +46,14 @@ class FirebaseSupportSessions(
                 "Session has expired."
             }
             val ownerUid = snap.getString("ownerUid") ?: error("Invalid session owner.")
-            check(ownerUid != operator.uid) { "The device owner cannot join as the operator." }
+            // The same Google account may be signed in on both personally owned devices.
+            // Device-owner approval remains required before any assistance can begin.
             check(snap.getString("operatorUid").isNullOrBlank()) { "Session already has an operator." }
-            tx.update(ref, mapOf("operatorUid" to operator.uid, "status" to "awaiting_consent",
-                "updatedAt" to FieldValue.serverTimestamp()))
+            tx.update(ref, mapOf(
+                "operatorUid" to operator.uid,
+                "status" to "awaiting_consent",
+                "updatedAt" to FieldValue.serverTimestamp()
+            ))
             Session(sessionId, ownerUid, operator.uid, "awaiting_consent")
         }.await()
     }
@@ -70,7 +74,7 @@ class FirebaseSupportSessions(
                 "consentGrantedAt" to if (granted) FieldValue.serverTimestamp() else null,
                 "updatedAt" to FieldValue.serverTimestamp()
             ))
-                    true
+            true
         }.await()
     }
 
