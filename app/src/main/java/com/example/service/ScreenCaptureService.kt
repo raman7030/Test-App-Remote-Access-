@@ -8,25 +8,29 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
+import android.util.DisplayMetrics
+import android.view.WindowManager
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 import com.example.R
 import com.example.webrtc.WebRtcConnectionState
 import com.example.webrtc.WebRtcSignalingManager
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 
+/**
+ * User-approved screen-capture foreground service.
+ *
+ * Android's MediaProjection consent dialog is mandatory. This implementation creates
+ * and releases a VirtualDisplay, but does not silently transmit or persist captured
+ * frames. A separately authenticated WebRTC transport must be integrated before
+ * remote streaming can be considered functional.
+ */
 class ScreenCaptureService : Service() {
-
     companion object {
         const val ACTION_START_STREAM = "com.example.service.action.START_STREAM"
         const val ACTION_STOP_STREAM = "com.example.service.action.STOP_STREAM"
@@ -34,15 +38,13 @@ class ScreenCaptureService : Service() {
         const val EXTRA_RESULT_DATA = "extra_result_data"
         const val NOTIFICATION_ID = 2001
         const val CHANNEL_ID = "screen_share_channel"
-        var isRunning: Boolean = false
+
+        @Volatile var isRunning: Boolean = false
             private set
     }
 
     private var mediaProjection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
-    private val serviceScope = CoroutineScope(Dispatchers.Default + Job())
-    private var statsJob: Job? = null
-    private var sessionDuration = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -54,6 +56,7 @@ class ScreenCaptureService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START_STREAM -> {
+                if (isRunning) return START_NOT_STICKY
                 val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
                 val resultData = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     intent.getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
@@ -61,13 +64,12 @@ class ScreenCaptureService : Service() {
                     @Suppress("DEPRECATION")
                     intent.getParcelableExtra(EXTRA_RESULT_DATA)
                 }
-
-                if (resultCode != 0 && resultData != null) {
-                    startForegroundWithNotification()
-                    startProjection(resultCode, resultData)
-                } else {
+                if (resultCode == 0 || resultData == null) {
                     stopSelf()
+                    return START_NOT_STICKY
                 }
+                startForegroundWithNotification()
+                startProjection(resultCode, resultData)
             }
             ACTION_STOP_STREAM -> {
                 stopStream()
@@ -82,26 +84,19 @@ class ScreenCaptureService : Service() {
             action = ACTION_STOP_STREAM
         }
         val stopPendingIntent = PendingIntent.getService(
-            this,
-            1,
-            stopIntent,
+            this, 1, stopIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-
-        val openActivityIntent = Intent(this, MainActivity::class.java)
         val openPendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            openActivityIntent,
+            this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.screen_share_active_title))
-            .setContentText(getString(R.string.screen_share_active_text))
+            .setContentText("Screen capture is active. Tap Stop to end sharing.")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(openPendingIntent)
-            .addAction(android.R.drawable.ic_delete, "Stop Session", stopPendingIntent)
+            .addAction(android.R.drawable.ic_delete, "Stop sharing", stopPendingIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
@@ -109,55 +104,68 @@ class ScreenCaptureService : Service() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
-                NOTIFICATION_ID,
-                notification,
+                NOTIFICATION_ID, notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
             )
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
-        isRunning = true
     }
 
     private fun startProjection(resultCode: Int, resultData: Intent) {
-        val mpManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        mediaProjection = mpManager.getMediaProjection(resultCode, resultData)
+        runCatching {
+            val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            val projection = manager.getMediaProjection(resultCode, resultData)
+                ?: throw IllegalStateException("Android did not grant screen capture")
+            mediaProjection = projection
 
-        WebRtcSignalingManager.updateConnectionState(WebRtcConnectionState.CONNECTING)
+            projection.registerCallback(object : MediaProjection.Callback() {
+                override fun onStop() {
+                    stopStream()
+                    stopSelf()
+                }
+            }, android.os.Handler(mainLooper))
 
-        statsJob?.cancel()
-        sessionDuration = 0L
-        statsJob = serviceScope.launch {
-            delay(800) // connection setup simulation
-            WebRtcSignalingManager.updateConnectionState(WebRtcConnectionState.CONNECTED)
+            val metrics = DisplayMetrics()
+            @Suppress("DEPRECATION")
+            (getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.getRealMetrics(metrics)
 
-            var frameCount = 0L
-            while (isActive) {
-                delay(1000)
-                sessionDuration++
-                frameCount += 30
-                WebRtcSignalingManager.updateStats(
-                    rttMs = (24..35).random().toLong(),
-                    fps = (29..30).random(),
-                    bitrate = (2350..2520).random(),
-                    packetLoss = 0.02f,
-                    frames = frameCount,
-                    duration = sessionDuration
-                )
-            }
+            virtualDisplay = projection.createVirtualDisplay(
+                "DroidCommand-UserApproved-ScreenShare",
+                metrics.widthPixels,
+                metrics.heightPixels,
+                metrics.densityDpi,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                null,
+                null,
+                null
+            ) ?: throw IllegalStateException("Unable to create capture display")
+
+            isRunning = true
+            WebRtcSignalingManager.updateConnectionState(WebRtcConnectionState.CONNECTING)
+            // No fake CONNECTED status: network/WebRTC connection is not implemented here.
+        }.onFailure {
+            WebRtcSignalingManager.updateConnectionState(WebRtcConnectionState.FAILED)
+            stopStream()
+            stopSelf()
         }
     }
 
     private fun stopStream() {
-        statsJob?.cancel()
-        virtualDisplay?.release()
+        runCatching { virtualDisplay?.release() }
         virtualDisplay = null
-        mediaProjection?.stop()
+        val projection = mediaProjection
         mediaProjection = null
         isRunning = false
+        runCatching { projection?.stop() }
+        WebRtcSignalingManager.endConsentSession()
         WebRtcSignalingManager.updateConnectionState(WebRtcConnectionState.DISCONNECTED)
-        WebRtcSignalingManager.reset()
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
     }
 
     override fun onDestroy() {
@@ -172,10 +180,9 @@ class ScreenCaptureService : Service() {
                 getString(R.string.notification_channel_screen_share),
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Shows visible notification while screen is being shared with enterprise admin"
+                description = "Visible notification while the user-approved screen capture is active"
             }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
 }
