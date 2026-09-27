@@ -38,7 +38,7 @@ class FirebaseSupportSessions(
         require(sessionId.matches(Regex("[A-Za-z0-9-]{16,64}"))) { "Invalid session code." }
         val operator = auth.currentUser ?: error("Sign in before joining a support session.")
         val ref = db.collection("sessions").document(sessionId)
-        db.runTransaction { tx ->
+        return db.runTransaction { tx ->
             val snap = tx.get(ref)
             check(snap.exists()) { "Session not found." }
             check(snap.getString("status") == "pending") { "Session is not available." }
