@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material3.Button
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -55,7 +56,8 @@ fun RoleSelectionScreen(
     deviceOwnerStatus: DeviceOwnerStatus,
     onNavigateToAdmin: () -> Unit,
     onNavigateToAgent: () -> Unit,
-    onNavigateToGuide: () -> Unit
+    onNavigateToGuide: () -> Unit,
+    onNavigateToSupport: () -> Unit
 ) {
     val scrollState = rememberScrollState()
 
@@ -193,6 +195,12 @@ fun RoleSelectionScreen(
         )
 
         Spacer(modifier = Modifier.height(24.dp))
+
+        Button(onClick = onNavigateToSupport, modifier = Modifier.fillMaxWidth()) {
+            Text("Support Sessions / Pairing")
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Setup Guide Button
         Card(

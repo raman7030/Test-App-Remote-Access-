@@ -2,31 +2,30 @@ package com.example
 
 import com.example.dpm.EnrollmentPayloadConfig
 import com.example.dpm.EnterpriseProvisioningHelper
-import org.json.JSONObject
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ExampleUnitTest {
 
-    @Test
-    fun testQrMatrixGeneration() {
-        val matrix = EnterpriseProvisioningHelper.generateQrMatrix("TEST_DATA", size = 29)
-        assertEquals(29, matrix.size)
-        assertEquals(29, matrix[0].size)
+    private fun validConfig() = EnrollmentPayloadConfig(
+        organizationId = "ORG-DROIDCOMMAND-GLOBAL",
+        organizationName = "DroidCommand",
+        serverUrl = "https://example.org/enroll",
+        enrollmentToken = "test-token",
+        signingCertificateChecksum = "a".repeat(64)
+    )
 
-        // Top-left finder corner (0,0) should be true
-        assertTrue(matrix[0][0])
-        assertTrue(matrix[0][6])
-        assertTrue(matrix[6][0])
+    @Test
+    fun testEnrollmentConfigValidation() {
+        val config = validConfig()
+        EnterpriseProvisioningHelper.validate(config)
+        assertEquals("ORG-DROIDCOMMAND-GLOBAL", config.organizationId)
+        assertTrue(config.leaveAllSystemAppsEnabled)
     }
 
-    @Test
-    fun testEnrollmentConfigDefaultValues() {
-        val config = EnrollmentPayloadConfig()
-        assertEquals("ORG-DROIDCOMMAND-GLOBAL", config.organizationId)
-        assertTrue(config.wifiSsid.isNotBlank())
-        assertTrue(config.leaveAllSystemAppsEnabled)
+    @Test(expected = UnsupportedOperationException::class)
+    fun testQrGenerationRejectsNonStandardPlaceholder() {
+        EnterpriseProvisioningHelper.generateQrMatrix("TEST_DATA", size = 29)
     }
 }

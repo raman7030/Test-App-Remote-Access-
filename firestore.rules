@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function participant(data) {
+      return signedIn() && (data.ownerUid == request.auth.uid || data.operatorUid == request.auth.uid);
+    }
+
+    match /users/{uid} {
+      allow read, create, update, delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    // Coordination metadata only; never place screen frames, credentials, or commands here.
+    match /sessions/{sessionId} {
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.operatorUid == null
+        && request.resource.data.status == "pending"
+        && request.resource.data.keys().hasOnly(["ownerUid", "operatorUid", "status", "createdAt", "expiresAt"]);
+      allow read: if participant(resource.data);
+      allow update: if signedIn() && (
+        // One authenticated operator can claim a pending session; identities remain immutable.
+        (resource.data.status == "pending"
+          && resource.data.operatorUid == null
+          && request.resource.data.operatorUid == request.auth.uid
+          && request.resource.data.ownerUid == resource.data.ownerUid
+          && request.resource.data.status == "awaiting_consent"
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["operatorUid", "status", "updatedAt"]))
+        ||
+        // Only the device owner can grant/deny consent.
+        (resource.data.ownerUid == request.auth.uid
+          && resource.data.operatorUid == request.resource.data.operatorUid
+          && request.resource.data.ownerUid == resource.data.ownerUid
+          && resource.data.status == "awaiting_consent"
+          && request.resource.data.status in ["consented", "denied"]
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "updatedAt", "consentGrantedAt"]))
+        ||
+        // Either participant can terminate an existing session, but neither can reopen it.
+        (participant(resource.data)
+          && request.resource.data.ownerUid == resource.data.ownerUid
+          && request.resource.data.operatorUid == resource.data.operatorUid
+          && request.resource.data.status == "ended"
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "endedAt"]))
+      );
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
