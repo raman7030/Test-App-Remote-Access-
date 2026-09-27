@@ -17,6 +17,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.auth.GoogleFirebaseAuth
 import com.example.ui.screens.AccountScreen
+import com.example.ui.screens.AccountScreen
 import com.example.ui.screens.AdminDashboardScreen
 import com.example.ui.screens.AdminRbacScreen
 import com.example.ui.screens.DeviceAgentStatusScreen
@@ -43,10 +44,18 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
                     val capabilityReport by agentViewModel.capabilityReport.collectAsState()
 
+                    val googleAuth = androidx.compose.runtime.remember { GoogleFirebaseAuth() }
                     NavHost(
                         navController = navController,
                         startDestination = "account"
                     ) {
+                        composable("account") {
+                            AccountScreen(
+                                activity = this@MainActivity,
+                                auth = googleAuth,
+                                onContinue = { navController.navigate("role_selection") { popUpTo("account") { inclusive = true } } }
+                            )
+                        }
                         composable("role_selection") {
                             RoleSelectionScreen(
                                 deviceOwnerStatus = capabilityReport.ownershipStatus,
