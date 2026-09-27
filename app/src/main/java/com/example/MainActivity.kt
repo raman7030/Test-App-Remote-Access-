@@ -17,6 +17,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.auth.GoogleFirebaseAuth
 import com.example.ui.screens.AccountScreen
+import com.example.ui.screens.SupportSessionScreen
 import com.example.ui.screens.AccountScreen
 import com.example.ui.screens.AdminDashboardScreen
 import com.example.ui.screens.AdminRbacScreen
@@ -61,11 +62,12 @@ class MainActivity : ComponentActivity() {
                                 deviceOwnerStatus = capabilityReport.ownershipStatus,
                                 onNavigateToAdmin = { navController.navigate("admin_dashboard") },
                                 onNavigateToAgent = { navController.navigate("agent_status") },
-                                onNavigateToGuide = { navController.navigate("device_owner_guide") }
+                                onNavigateToGuide = { navController.navigate("device_owner_guide") },
+                                onNavigateToSupport = { navController.navigate("support_sessions") }
                             )
                         }
 
-                        composable("admin_dashboard") {
+                        composable("support_sessions") {\n                            SupportSessionScreen(onBack = { navController.popBackStack() })\n                        }\n\n                        composable("admin_dashboard") {
                             AdminDashboardScreen(
                                 viewModel = adminViewModel,
                                 onSelectDevice = { deviceId ->
