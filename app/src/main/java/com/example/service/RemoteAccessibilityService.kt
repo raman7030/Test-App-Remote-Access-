@@ -15,12 +15,36 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
+/**
+ * Accessibility-based remote support input.
+ *
+ * The user must explicitly enable this service in Android Accessibility settings and
+ * separately approve each support session. This service never self-enables or silently
+ * grants authorization to an external operator.
+ */
 class RemoteAccessibilityService : AccessibilityService() {
-
     companion object {
-        var isServiceActive: Boolean = false
+        @Volatile var isServiceActive: Boolean = false
             private set
-        var isRemoteInteractionAuthorized: Boolean = false
+
+        @Volatile var isRemoteInteractionAuthorized: Boolean = false
+            private set
+
+        @Volatile private var consentedSessionId: String? = null
+
+        /** Called only by the in-app consent flow after showing the operator and scope. */
+        fun grantSessionConsent(sessionId: String): Boolean {
+            if (sessionId.isBlank()) return false
+            consentedSessionId = sessionId
+            isRemoteInteractionAuthorized = true
+            return true
+        }
+
+        /** End the current approved session immediately. */
+        fun revokeSessionConsent() {
+            isRemoteInteractionAuthorized = false
+            consentedSessionId = null
+        }
     }
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
@@ -36,7 +60,10 @@ class RemoteAccessibilityService : AccessibilityService() {
         gestureJob?.cancel()
         gestureJob = serviceScope.launch {
             WebRtcSignalingManager.incomingGestureEvents.collectLatest { gesture ->
-                if (isRemoteInteractionAuthorized) {
+                val sessionId = consentedSessionId
+                if (isServiceActive && isRemoteInteractionAuthorized &&
+                    sessionId != null && WebRtcSignalingManager.isRemoteInputAuthorized(sessionId)
+                ) {
                     handleGesture(gesture)
                 }
             }
@@ -45,63 +72,61 @@ class RemoteAccessibilityService : AccessibilityService() {
 
     private fun handleGesture(gesture: RemoteGesture) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
-
         when (gesture.type) {
-            GestureType.TAP -> {
-                val path = Path().apply {
-                    moveTo(gesture.x, gesture.y)
-                }
-                val stroke = GestureDescription.StrokeDescription(path, 0, 60)
-                val description = GestureDescription.Builder().addStroke(stroke).build()
-                dispatchGesture(description, null, null)
-            }
-            GestureType.LONG_PRESS -> {
-                val path = Path().apply {
-                    moveTo(gesture.x, gesture.y)
-                }
-                val stroke = GestureDescription.StrokeDescription(path, 0, 600)
-                val description = GestureDescription.Builder().addStroke(stroke).build()
-                dispatchGesture(description, null, null)
-            }
+            GestureType.TAP -> dispatchPath(gesture.x, gesture.y, 60L)
+            GestureType.LONG_PRESS -> dispatchPath(gesture.x, gesture.y, 600L)
             GestureType.SWIPE -> {
                 val path = Path().apply {
                     moveTo(gesture.x, gesture.y)
                     lineTo(gesture.endX, gesture.endY)
                 }
                 val stroke = GestureDescription.StrokeDescription(path, 0, 300)
-                val description = GestureDescription.Builder().addStroke(stroke).build()
-                dispatchGesture(description, null, null)
+                dispatchGesture(GestureDescription.Builder().addStroke(stroke).build(), null, null)
             }
             GestureType.GLOBAL_ACTION -> {
-                if (gesture.actionCode != 0) {
-                    performGlobalAction(gesture.actionCode)
-                }
+                // Restrict global actions to documented navigation actions.
+                if (gesture.actionCode in listOf(
+                        GLOBAL_ACTION_BACK, GLOBAL_ACTION_HOME, GLOBAL_ACTION_RECENTS,
+                        GLOBAL_ACTION_NOTIFICATIONS, GLOBAL_ACTION_QUICK_SETTINGS
+                    )
+                ) performGlobalAction(gesture.actionCode)
             }
             GestureType.TEXT_INPUT -> {
-                if (!gesture.textPayload.isNullOrBlank()) {
-                    val root = rootInActiveWindow ?: return
-                    val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+                val text = gesture.textPayload?.take(500) ?: return
+                if (text.isNotBlank()) {
+                    val focused = rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
                     if (focused != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                         val args = android.os.Bundle().apply {
-                            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, gesture.textPayload)
+                            putCharSequence(
+                                AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                                text
+                            )
                         }
                         focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+                        focused.recycle()
                     }
                 }
             }
         }
     }
 
+    private fun dispatchPath(x: Float, y: Float, durationMs: Long) {
+        val path = Path().apply { moveTo(x, y) }
+        val stroke = GestureDescription.StrokeDescription(path, 0, durationMs)
+        dispatchGesture(GestureDescription.Builder().addStroke(stroke).build(), null, null)
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // Accessibility observation if needed for node mapping
+        // No screen text, notifications, passwords, or UI content are collected.
     }
 
     override fun onInterrupt() {
-        isServiceActive = false
+        revokeSessionConsent()
     }
 
     override fun onDestroy() {
         isServiceActive = false
+        revokeSessionConsent()
         gestureJob?.cancel()
         super.onDestroy()
     }
