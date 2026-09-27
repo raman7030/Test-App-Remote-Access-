@@ -96,7 +96,15 @@ class AdminViewModel : ViewModel() {
     val currentSessionStats: StateFlow<WebRtcSessionStats> = WebRtcSignalingManager.sessionStats
     val qualityConfig: StateFlow<WebRtcQualityConfig> = WebRtcSignalingManager.qualityConfig
 
-    private val _provisioningConfig = MutableStateFlow(EnrollmentPayloadConfig())
+    private val _provisioningConfig = MutableStateFlow(
+        EnrollmentPayloadConfig(
+            organizationId = "",
+            organizationName = "",
+            serverUrl = "",
+            enrollmentToken = "",
+            signingCertificateChecksum = ""
+        )
+    )
     val provisioningConfig: StateFlow<EnrollmentPayloadConfig> = _provisioningConfig.asStateFlow()
 
     private val _qrMatrix = MutableStateFlow(EnterpriseProvisioningHelper.generateQrMatrix("INIT"))
