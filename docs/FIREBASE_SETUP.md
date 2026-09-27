@@ -1,6 +1,6 @@
 # Firebase + Google Sign-In setup
 
-This repository now includes a Google Credential Manager → Firebase Authentication sign-in helper and Firebase Auth/Firestore dependencies. It does **not** create cloud resources automatically: Firebase project ownership, OAuth consent, app registration, and rules deployment require an administrator to perform the one-time setup below.
+This repository includes a Google Credential Manager → Firebase Authentication sign-in helper, Firebase Auth/Firestore dependencies, and `FirebaseSupportSessions` for authenticated session creation, operator claiming, owner-controlled consent, and participant termination. Session records contain metadata only; this is not WebRTC signaling or a remote-command transport. It does **not** create cloud resources automatically: Firebase project ownership, OAuth consent, app registration, and rules deployment require an administrator to perform the one-time setup below.
 
 ## Google free-tier services used
 
