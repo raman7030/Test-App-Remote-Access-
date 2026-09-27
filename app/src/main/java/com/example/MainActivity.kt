@@ -15,6 +15,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.auth.GoogleFirebaseAuth
+import com.example.ui.screens.AccountScreen
 import com.example.ui.screens.AdminDashboardScreen
 import com.example.ui.screens.AdminRbacScreen
 import com.example.ui.screens.DeviceAgentStatusScreen
@@ -43,7 +45,7 @@ class MainActivity : ComponentActivity() {
 
                     NavHost(
                         navController = navController,
-                        startDestination = "role_selection"
+                        startDestination = "account"
                     ) {
                         composable("role_selection") {
                             RoleSelectionScreen(
