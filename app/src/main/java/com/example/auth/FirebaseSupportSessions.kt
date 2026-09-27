@@ -83,6 +83,7 @@ class FirebaseSupportSessions(
                 "Only a session participant can end this session."
             }
             tx.update(ref, mapOf("status" to "ended", "endedAt" to FieldValue.serverTimestamp()))
+            true
         }.await()
     }
 }
