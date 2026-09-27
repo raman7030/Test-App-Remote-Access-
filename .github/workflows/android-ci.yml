@@ -31,6 +31,9 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
+      - name: Print Android signing fingerprints
+        run: ./gradlew :app:signingReport --stacktrace
+
       - name: Run unit tests
         run: ./gradlew :app:testDebugUnitTest --stacktrace
 
