@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "760072177717",
+    "project_id": "test-remote-access-867d4",
+    "storage_bucket": "test-remote-access-867d4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:760072177717:android:87ec8d5bebd4351701c97c",
+        "android_client_info": {
+          "package_name": "com.aistudio.droidcommand.ultimate"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDtBNnab7oJ7B6NedsEO-ol4FwyJ8OruvA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
