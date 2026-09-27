@@ -18,7 +18,6 @@ import androidx.navigation.navArgument
 import com.example.auth.GoogleFirebaseAuth
 import com.example.ui.screens.AccountScreen
 import com.example.ui.screens.SupportSessionScreen
-import com.example.ui.screens.AccountScreen
 import com.example.ui.screens.AdminDashboardScreen
 import com.example.ui.screens.AdminRbacScreen
 import com.example.ui.screens.DeviceAgentStatusScreen
@@ -67,7 +66,11 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        composable("support_sessions") {\n                            SupportSessionScreen(onBack = { navController.popBackStack() })\n                        }\n\n                        composable("admin_dashboard") {
+                        composable("support_sessions") {
+                            SupportSessionScreen(onBack = { navController.popBackStack() })
+                        }
+
+                        composable("admin_dashboard") {
                             AdminDashboardScreen(
                                 viewModel = adminViewModel,
                                 onSelectDevice = { deviceId ->
