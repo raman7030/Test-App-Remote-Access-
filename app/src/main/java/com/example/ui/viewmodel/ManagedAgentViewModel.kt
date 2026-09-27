@@ -105,8 +105,9 @@ class ManagedAgentViewModel : ViewModel() {
     }
 
     fun toggleAccessibilityAuthorization(authorized: Boolean) {
-        RemoteAccessibilityService.isRemoteInteractionAuthorized = authorized
-        _isAccessibilityAuthorized.value = authorized
+        // Consent can only be granted through the explicit per-session approval flow.
+        if (!authorized) RemoteAccessibilityService.revokeSessionConsent()
+        _isAccessibilityAuthorized.value = RemoteAccessibilityService.isServiceActive
     }
 
     fun openAccessibilitySettings(context: Context) {
